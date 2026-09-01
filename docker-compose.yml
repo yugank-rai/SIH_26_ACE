@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: railaid-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: railaid
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d railaid']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: railaid-backend
+    restart: unless-stopped
+    ports:
+      - '5000:5000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/railaid
+      OPTIMIZER_URL: http://optimizer:8000
+
+  optimizer:
+    build:
+      context: ./optimizer
+      dockerfile: Dockerfile
+    container_name: railaid-optimizer
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    environment:
+      PYTHONUNBUFFERED: 1
+
+volumes:
+  postgres_data:
+    driver: local
