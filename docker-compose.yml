@@ -1,20 +1,18 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: railaid-postgres
     restart: unless-stopped
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: railaid
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d railaid']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,13 +24,13 @@ services:
     container_name: railaid-backend
     restart: unless-stopped
     ports:
-      - '5000:5000'
+      - '${BACKEND_PORT:-5000}:5000'
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       PORT: 5000
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/railaid
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       OPTIMIZER_URL: http://optimizer:8000
 
   optimizer:
@@ -42,7 +40,7 @@ services:
     container_name: railaid-optimizer
     restart: unless-stopped
     ports:
-      - '8000:8000'
+      - '${OPTIMIZER_PORT:-8000}:8000'
     environment:
       PYTHONUNBUFFERED: 1
 

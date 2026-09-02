@@ -21,18 +21,79 @@ import { sql } from 'drizzle-orm';
  * 5. 6 Goods forecasts with 3 deliberately overlapping timetable entries to create realistic scheduling conflicts
  *
  * Leaves available_slots, schedule_results, and run_metrics empty.
- * Idempotent: clears existing data safely before inserting.
+ * Idempotent: ensures schema exists and clears existing data safely before inserting.
  */
 
 async function seed() {
   console.log('🌱 Starting RailAID database seed...');
 
   try {
-    // 1. Clean existing data in reverse dependency order
-    console.log('🧹 Clearing existing tables...');
+    // 1. Ensure tables exist (handles freshly initialized databases seamlessly)
+    console.log('📦 Ensuring database schema exists...');
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS departments (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS defects (
+        id SERIAL PRIMARY KEY,
+        dept_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+        corridor_id TEXT NOT NULL,
+        asset_id TEXT NOT NULL,
+        defect_type TEXT NOT NULL,
+        severity INTEGER NOT NULL,
+        overdue_days INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS train_timetable (
+        id SERIAL PRIMARY KEY,
+        corridor_id TEXT NOT NULL,
+        train_id TEXT NOT NULL,
+        start_time TIMESTAMP NOT NULL,
+        end_time TIMESTAMP NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS goods_forecast (
+        id SERIAL PRIMARY KEY,
+        corridor_id TEXT NOT NULL,
+        window_start TIMESTAMP NOT NULL,
+        window_end TIMESTAMP NOT NULL,
+        priority TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS available_slots (
+        id SERIAL PRIMARY KEY,
+        corridor_id TEXT NOT NULL,
+        start_time TIMESTAMP NOT NULL,
+        end_time TIMESTAMP NOT NULL,
+        horizon TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS schedule_results (
+        id SERIAL PRIMARY KEY,
+        defect_id INTEGER NOT NULL REFERENCES defects(id) ON DELETE CASCADE,
+        slot_id INTEGER REFERENCES available_slots(id) ON DELETE SET NULL,
+        horizon TEXT NOT NULL,
+        score NUMERIC(10, 2) NOT NULL,
+        status TEXT NOT NULL,
+        reason_code TEXT,
+        run_id TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS run_metrics (
+        id SERIAL PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        horizon TEXT NOT NULL,
+        uptime_pct NUMERIC(6, 2) NOT NULL,
+        downtime_hours_saved NUMERIC(10, 2) NOT NULL,
+        conflicts_resolved INTEGER NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    // 2. Clean existing data in reverse dependency order
+    console.log('🧹 Clearing existing table records...');
     await db.execute(sql`TRUNCATE TABLE schedule_results, run_metrics, available_slots, goods_forecast, train_timetable, defects, departments RESTART IDENTITY CASCADE;`);
 
-    // 2. Insert Departments
+    // 3. Insert Departments
     console.log('🏢 Seeding departments...');
     const deptRows = await db
       .insert(departments)
@@ -46,7 +107,7 @@ async function seed() {
     const [engDept, stDept, trdDept] = deptRows;
     console.log(`   ✓ Created ${deptRows.length} departments (Eng: ${engDept.id}, S&T: ${stDept.id}, TRD: ${trdDept.id})`);
 
-    // 3. Insert 22 Defects (8 Engineering, 7 S&T, 7 Traction Distribution)
+    // 4. Insert 22 Defects (8 Engineering, 7 S&T, 7 Traction Distribution)
     console.log('⚠️  Seeding 22 defects across departments & corridors...');
     const defectSeedData = [
       // Engineering (8 defects)
@@ -279,7 +340,7 @@ async function seed() {
     const insertedDefects = await db.insert(defects).values(defectSeedData).returning();
     console.log(`   ✓ Created ${insertedDefects.length} defects across 5 corridors.`);
 
-    // 4. Insert 12 Train Timetable Entries across 5 Corridors (Base Week: Sept 7 - Sept 13, 2026)
+    // 5. Insert 12 Train Timetable Entries across 5 Corridors (Base Week: Sept 7 - Sept 13, 2026)
     console.log('🚆 Seeding 12 passenger train timetable entries...');
     const timetableSeedData = [
       // Corridor 1: NDLS-PNP (3 trains)
@@ -368,7 +429,7 @@ async function seed() {
     const insertedTimetable = await db.insert(train_timetable).values(timetableSeedData).returning();
     console.log(`   ✓ Created ${insertedTimetable.length} train timetable entries.`);
 
-    // 5. Insert 6 Goods Forecast entries (with 3 deliberately overlapping timetable entries)
+    // 6. Insert 6 Goods Forecast entries (with 3 deliberately overlapping timetable entries)
     console.log('📦 Seeding 6 goods forecast entries (including deliberate conflict overlaps)...');
     const goodsSeedData = [
       // Conflict 1: Overlaps 12012 Shatabdi (08:00-09:45) on NDLS-PNP
