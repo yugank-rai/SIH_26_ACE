@@ -47,26 +47,33 @@ defectsRouter.post('/', async (req: Request, res: Response) => {
     const errors: string[] = [];
 
     const numSeverity = Number(severity);
-    if (isNaN(numSeverity) || numSeverity < 1 || numSeverity > 5) {
+    if (isNaN(numSeverity) || !Number.isInteger(numSeverity) || numSeverity < 1 || numSeverity > 5) {
       errors.push('severity must be an integer between 1 and 5');
     }
 
     const numOverdue = Number(overdue_days);
-    if (isNaN(numOverdue) || numOverdue < 0) {
+    if (isNaN(numOverdue) || !Number.isInteger(numOverdue) || numOverdue < 0) {
       errors.push('overdue_days must be an integer >= 0');
     }
 
-    if (!corridor_id || typeof corridor_id !== 'string' || corridor_id.trim() === '') {
-      errors.push('corridor_id must be a non-empty string (e.g. "NDLS-PNP")');
+    if (!corridor_id || typeof corridor_id !== 'string' || corridor_id.trim().length < 5) {
+      errors.push('corridor_id must be at least 5 characters long (e.g. "NDLS-PNP")');
     }
 
-    if (!defect_type || typeof defect_type !== 'string' || defect_type.trim() === '') {
-      errors.push('defect_type must be a non-empty string');
+    if (!defect_type || typeof defect_type !== 'string' || defect_type.trim().length < 5) {
+      errors.push('defect_type must be at least 5 characters long');
     }
 
-    const numDeptId = Number(dept_id);
-    if (isNaN(numDeptId) || numDeptId <= 0) {
-      errors.push('dept_id must be a valid department ID');
+    if (asset_id !== undefined && asset_id !== null && asset_id !== '') {
+      if (typeof asset_id !== 'string' || asset_id.trim().length < 5) {
+        errors.push('asset_id must be at least 5 characters long if provided');
+      }
+    }
+
+    // Default to dept_id = 1 (Engineering) if not explicitly provided
+    const numDeptId = dept_id !== undefined && dept_id !== null ? Number(dept_id) : 1;
+    if (isNaN(numDeptId) || numDeptId <= 0 || !Number.isInteger(numDeptId)) {
+      errors.push('dept_id must be a valid positive integer department ID');
     }
 
     if (errors.length > 0) {

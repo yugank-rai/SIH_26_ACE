@@ -15,7 +15,7 @@ export interface ComputedSlot {
  *
  * Designated block days:
  * - Weekly: 2 days (day indices 2 and 5)
- * - Monthly: 8 days (day indices 2, 5, 9, 12, 16, 19, 23, 26)
+ * - Monthly: 6 days (day indices 2, 5, 9, 13, 18, 23)
  *
  * Window on designated days: exactly 1 window per corridor (00:00-02:00)
  *
@@ -51,7 +51,7 @@ export async function computeAvailableSlots(
   // Designated maintenance block days per horizon
   const designatedDays =
     horizon === 'monthly'
-      ? [2, 5, 9, 12, 16, 19, 23, 26]
+      ? [2, 5, 9, 13, 18, 23]
       : [2, 5];
 
   // 3. Generate candidate 00:00-02:00 window on each designated block day
