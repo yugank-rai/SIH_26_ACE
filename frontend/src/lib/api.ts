@@ -15,10 +15,17 @@ const BASE_URL = RAW_API_URL.endsWith('/api')
 
 export type ToastType = 'success' | 'error' | 'info';
 
+let toastCounter = 0;
+
 export const dispatchToast = (message: string, type: ToastType = 'info') => {
+  const uniqueId =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `toast-${Date.now()}-${++toastCounter}-${Math.random().toString(36).substring(2, 7)}`;
+
   window.dispatchEvent(
     new CustomEvent('railaid-toast', {
-      detail: { message, type, id: Date.now() },
+      detail: { message, type, id: uniqueId },
     })
   );
 };

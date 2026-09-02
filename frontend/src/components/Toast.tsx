@@ -3,7 +3,7 @@ import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 import { ToastType } from '../lib/api';
 
 interface ToastItem {
-  id: number;
+  id: string;
   message: string;
   type: ToastType;
 }
