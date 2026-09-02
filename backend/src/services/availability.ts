@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { train_timetable, goods_forecast, available_slots } from '../db/schema';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { train_timetable, goods_forecast } from '../db/schema';
+import { eq } from 'drizzle-orm';
 
 export interface ComputedSlot {
   id: number;
@@ -10,8 +10,14 @@ export interface ComputedSlot {
 }
 
 /**
- * Computes available 2-hour maintenance block windows for a given corridor and planning horizon.
+ * Computes available maintenance block windows on designated block days for a given corridor and planning horizon.
  * Excludes any window that overlaps with scheduled passenger train timetables or goods freight forecasts.
+ *
+ * Designated block days:
+ * - Weekly: 2 days (day indices 2 and 5)
+ * - Monthly: 8 days (day indices 2, 5, 9, 12, 16, 19, 23, 26)
+ *
+ * Window on designated days: exactly 1 window per corridor (00:00-02:00)
  *
  * @param corridorId - Station-pair identifier (e.g. "NDLS-PNP")
  * @param horizon - "weekly" (7 days) or "monthly" (30 days)
@@ -26,7 +32,6 @@ export async function computeAvailableSlots(
 
   // Normalize start to the beginning of the current day (00:00:00)
   const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const rangeEnd = new Date(rangeStart.getTime() + numDays * 24 * 60 * 60 * 1000);
 
   // 1. Fetch passenger train timetables for this corridor
   const timetables = await db
@@ -43,43 +48,47 @@ export async function computeAvailableSlots(
   const survivingSlots: ComputedSlot[] = [];
   let slotCounter = 0;
 
-  // 3. Generate candidate 2-hour windows (12 per day: 00:00-02:00, 02:00-04:00, ... 22:00-24:00)
-  for (let day = 0; day < numDays; day++) {
-    for (let hour = 0; hour < 24; hour += 2) {
-      const windowStart = new Date(rangeStart.getTime() + (day * 24 + hour) * 60 * 60 * 1000);
-      const windowEnd = new Date(windowStart.getTime() + 2 * 60 * 60 * 1000);
+  // Designated maintenance block days per horizon
+  const designatedDays =
+    horizon === 'monthly'
+      ? [2, 5, 9, 12, 16, 19, 23, 26]
+      : [2, 5];
 
-      // Overlap check with passenger timetable: windowStart < entryEnd AND windowEnd > entryStart
-      const overlapsPassenger = timetables.some((t) => {
-        const trainStart = new Date(t.startTime);
-        const trainEnd = new Date(t.endTime);
-        return windowStart < trainEnd && windowEnd > trainStart;
-      });
+  // 3. Generate candidate 00:00-02:00 window on each designated block day
+  for (const day of designatedDays) {
+    const windowStart = new Date(rangeStart.getTime() + day * 24 * 60 * 60 * 1000); // 00:00
+    const windowEnd = new Date(windowStart.getTime() + 2 * 60 * 60 * 1000); // 02:00
 
-      if (overlapsPassenger) {
-        continue;
-      }
+    // Overlap check with passenger timetable: windowStart < entryEnd AND windowEnd > entryStart
+    const overlapsPassenger = timetables.some((t) => {
+      const trainStart = new Date(t.startTime);
+      const trainEnd = new Date(t.endTime);
+      return windowStart < trainEnd && windowEnd > trainStart;
+    });
 
-      // Overlap check with goods forecast: windowStart < entryEnd AND windowEnd > entryStart
-      const overlapsGoods = goods.some((g) => {
-        const goodsStart = new Date(g.windowStart);
-        const goodsEnd = new Date(g.windowEnd);
-        return windowStart < goodsEnd && windowEnd > goodsStart;
-      });
-
-      if (overlapsGoods) {
-        continue;
-      }
-
-      // Surviving non-conflicting slot
-      slotCounter++;
-      survivingSlots.push({
-        id: slotCounter,
-        corridor_id: corridorId,
-        start_time: windowStart.toISOString(),
-        end_time: windowEnd.toISOString(),
-      });
+    if (overlapsPassenger) {
+      continue;
     }
+
+    // Overlap check with goods forecast: windowStart < entryEnd AND windowEnd > entryStart
+    const overlapsGoods = goods.some((g) => {
+      const goodsStart = new Date(g.windowStart);
+      const goodsEnd = new Date(g.windowEnd);
+      return windowStart < goodsEnd && windowEnd > goodsStart;
+    });
+
+    if (overlapsGoods) {
+      continue;
+    }
+
+    // Surviving non-conflicting slot
+    slotCounter++;
+    survivingSlots.push({
+      id: slotCounter,
+      corridor_id: corridorId,
+      start_time: windowStart.toISOString(),
+      end_time: windowEnd.toISOString(),
+    });
   }
 
   return survivingSlots;
