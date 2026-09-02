@@ -1,0 +1,12 @@
+{
+  "tasks": [
+    {"id": 1, "corridor_id": "NDLS-PNP", "severity": 5, "overdue_days": 20, "defect_type": "track_defect"},
+    {"id": 2, "corridor_id": "NDLS-PNP", "severity": 2, "overdue_days": 3, "defect_type": "routine_inspection"},
+    {"id": 3, "corridor_id": "NDLS-GZB", "severity": 4, "overdue_days": 15, "defect_type": "signal_fault"}
+  ],
+  "available_slots": [
+    {"id": 1, "corridor_id": "NDLS-PNP", "start_time": "2026-09-05T08:00:00", "end_time": "2026-09-05T10:00:00"},
+    {"id": 2, "corridor_id": "NDLS-GZB", "start_time": "2026-09-05T09:00:00", "end_time": "2026-09-05T11:00:00"}
+  ],
+  "horizon": "weekly"
+}
