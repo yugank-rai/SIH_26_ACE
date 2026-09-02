@@ -53,7 +53,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   });
 
   // Calculate Stat Cards
-  const uptimePct = weeklyMetrics ? Number(weeklyMetrics.uptime_pct) : 0;
+  const weeklyUptime = weeklyMetrics ? Number(weeklyMetrics.uptime_pct) : 0;
+  const monthlyUptime = monthlyMetrics ? Number(monthlyMetrics.uptime_pct) : 0;
+  const capacityGainPts = (monthlyUptime - weeklyUptime).toFixed(1);
+
   const scheduledCount = weeklySchedule?.schedule?.length || 0;
   const unscheduledCount = weeklySchedule?.unscheduled?.length || 0;
   const criticalDefectsCount = defects.filter((d) => d.severity === 5 && d.status === 'open').length;
@@ -68,12 +71,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const chartData = [
     {
       name: 'Weekly Horizon (7d)',
-      uptime: weeklyMetrics ? Number(weeklyMetrics.uptime_pct) : 39.1,
+      uptime: weeklyUptime,
       color: '#3B82F6', // Blue
     },
     {
       name: 'Monthly Horizon (30d)',
-      uptime: monthlyMetrics ? Number(monthlyMetrics.uptime_pct) : 100.0,
+      uptime: monthlyUptime,
       color: '#10B981', // Emerald
     },
   ];
@@ -91,7 +94,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 mt-2 font-mono">
-            {uptimePct > 0 ? `${uptimePct.toFixed(1)}%` : '39.1%'}
+            {weeklyUptime > 0 ? `${weeklyUptime.toFixed(1)}%` : '0.0%'}
           </div>
           <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
             <span className="text-emerald-600 font-semibold flex items-center">
@@ -110,7 +113,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 mt-2 font-mono">
-            {scheduledCount > 0 ? scheduledCount : '9'}
+            {scheduledCount > 0 ? scheduledCount : '0'}
           </div>
           <div className="text-xs text-slate-500 mt-1">Non-conflicting maintenance slots</div>
         </div>
@@ -138,7 +141,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 mt-2 font-mono">
-            {unscheduledCount > 0 ? unscheduledCount : '14'}
+            {unscheduledCount > 0 ? unscheduledCount : '0'}
           </div>
           <div className="text-xs text-slate-500 mt-1">Deferred to monthly planning horizon</div>
         </div>
@@ -156,7 +159,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </p>
             </div>
             <span className="text-[11px] font-mono font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
-              Capacity Gain: +60.9%
+              Capacity Gain: +{Number(capacityGainPts) >= 0 ? capacityGainPts : '0.0'} pts
             </span>
           </div>
 
@@ -195,7 +198,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 flex items-center justify-between">
-            <span>Extended monthly planning resolves 100% of corridor backlog.</span>
+            <span>
+              Extended monthly planning resolves {monthlyUptime > 0 ? `${monthlyUptime.toFixed(1)}%` : '0%'} of corridor backlog.
+            </span>
             <button
               onClick={onNavigateToPlanner}
               className="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
